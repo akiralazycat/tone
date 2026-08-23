@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { HouseBar } from "@/components/house-bar";
 import {
   axisMeta,
   createToneTokens,
@@ -243,7 +244,9 @@ export default function ToneStudio() {
   };
 
   return (
-    <main className="studio">
+    <>
+      <HouseBar product="Tone" />
+      <main className="studio">
       <header className="site-header">
         <a className="tone-logo" href="#top" aria-label="Tone home"><span className="tone-logo-dot" />Tone</a>
         <nav className="site-nav" aria-label="Primary navigation">
@@ -376,6 +379,7 @@ export default function ToneStudio() {
         <p>Color is a symptom. Tone is the system.</p>
         <span>Built for deliberate interfaces.</span>
       </footer>
-    </main>
+      </main>
+    </>
   );
 }
