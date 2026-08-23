@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./labs.css";
 
 export const metadata: Metadata = {
   title: "Tone — Color direction, beyond palettes",
-  description: "Translate visual intent into coherent color, geometry, contrast, depth, typography and motion — then export it to code or AI.",
+  description: "Translate visual intent into coherent color, geometry, contrast, depth, typography and motion — then reverse, compare and export it to code or AI.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
