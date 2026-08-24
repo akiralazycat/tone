@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { HouseBar } from "@/components/house-bar";
 import {
   axisMeta,
   createToneTokens,
@@ -245,7 +244,6 @@ export default function ToneStudio() {
 
   return (
     <>
-      <HouseBar product="Tone" />
       <main className="studio">
       <header className="site-header">
         <a className="tone-logo" href="#top" aria-label="Tone home"><span className="tone-logo-dot" />Tone</a>
