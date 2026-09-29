@@ -16,7 +16,7 @@ The preferred first layer remains Vercel Firewall because it can reject before a
 
 | Item | Status |
 |---|---|
-| Request body ceiling | pending |
-| Pre-fetch burst guard | pending |
-| Static verification | pending |
+| Request body ceiling | done | 8 KiB before JSON parsing |
+| Pre-fetch burst guard | done | 12 requests / minute / client key per warm instance |
+| Static verification | done | guard runs before DNS and remote fetches |
 | Production verification | pending |
