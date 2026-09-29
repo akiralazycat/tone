@@ -2,12 +2,16 @@ import dns from "node:dns/promises";
 import net from "node:net";
 import { NextResponse } from "next/server";
 import { analyzePalette, type WeightedColor } from "@/lib/tone-analysis";
+import { consumeRequestBurst } from "@/lib/request-burst-limit";
 
 export const runtime = "nodejs";
 
 const MAX_HTML_BYTES = 900_000;
 const MAX_CSS_BYTES = 360_000;
 const MAX_STYLESHEETS = 3;
+const MAX_REQUEST_BYTES = 8_192;
+const ANALYZE_BURST_LIMIT = 12;
+const ANALYZE_BURST_WINDOW_MS = 60_000;
 
 const clamp = (value: number, min = 0, max = 100) => Math.min(max, Math.max(min, value));
 
@@ -195,8 +199,32 @@ function inferCssSignals(cssText: string) {
 }
 
 export async function POST(request: Request) {
+  const burst = consumeRequestBurst(request, "analyze-url", ANALYZE_BURST_LIMIT, ANALYZE_BURST_WINDOW_MS);
+  if (!burst.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Try again shortly." },
+      { status: 429, headers: { "Retry-After": String(burst.retryAfterSeconds) } },
+    );
+  }
+
   try {
-    const body = (await request.json()) as { url?: unknown };
+    const declaredLength = Number(request.headers.get("content-length") ?? 0);
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BYTES) {
+      return NextResponse.json({ error: "Request is too large." }, { status: 413 });
+    }
+
+    const raw = await request.text();
+    if (new TextEncoder().encode(raw).byteLength > MAX_REQUEST_BYTES) {
+      return NextResponse.json({ error: "Request is too large." }, { status: 413 });
+    }
+
+    let body: { url?: unknown };
+    try {
+      body = JSON.parse(raw) as { url?: unknown };
+    } catch {
+      return NextResponse.json({ error: "Enter a valid public URL." }, { status: 400 });
+    }
+
     if (typeof body.url !== "string" || body.url.length > 2048) {
       return NextResponse.json({ error: "Enter a valid public URL." }, { status: 400 });
     }
