@@ -1,8 +1,9 @@
 "use client";
 
+import NextImage from "next/image";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { analyzePalette, type ToneAnalysis, type WeightedColor } from "@/lib/tone-analysis";
-import { axisMeta, createToneTokens, getContrast, tonePresets, type ToneAxes, type TonePreset } from "@/lib/tones";
+import { axisMeta, createToneTokens, getContrast, readSharedTone, tonePresets, type ToneAxes, type TonePreset } from "@/lib/tones";
 
 type SourceMode = "image" | "url";
 type CompareCandidate = {
@@ -249,7 +250,7 @@ export function BrandReverse() {
           {mode === "image" ? (
             <label className="image-drop">
               <input type="file" accept="image/*" onChange={(event) => void handleImage(event.target.files?.[0])} />
-              {previewUrl ? <img src={previewUrl} alt="Uploaded brand reference preview" /> : <div className="image-drop-placeholder"><UploadIcon /><strong>Choose a visual reference</strong><span>Logo, screenshot, photograph, poster</span></div>}
+              {previewUrl ? <NextImage src={previewUrl} alt="Uploaded brand reference preview" fill unoptimized /> : <div className="image-drop-placeholder"><UploadIcon /><strong>Choose a visual reference</strong><span>Logo, screenshot, photograph, poster</span></div>}
               {fileName ? <small>{fileName}</small> : null}
             </label>
           ) : (
@@ -298,16 +299,9 @@ function presetCandidate(preset: TonePreset, index: number): CompareCandidate {
 }
 
 function parseCurrentCandidate(): CompareCandidate | null {
-  const params = new URLSearchParams(window.location.search);
-  const preset = tonePresets.find((item) => item.id === params.get("tone"));
-  if (!preset) return null;
-  const axes = { ...preset.axes };
-  for (const { key } of axisMeta) {
-    const value = Number(params.get(key));
-    if (Number.isFinite(value) && value >= 0 && value <= 100) axes[key] = value;
-  }
-  const seedRaw = params.get("seed")?.replace("#", "");
-  const seed = seedRaw && /^[0-9a-f]{6}$/i.test(seedRaw) ? `#${seedRaw}` : preset.seed;
+  const shared = readSharedTone(window.location.search);
+  if (!shared) return null;
+  const { preset, axes, seed } = shared;
   return { key: "current", label: `${preset.name} / current`, presetId: preset.id, seed, axes, source: "current" };
 }
 

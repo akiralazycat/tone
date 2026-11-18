@@ -36,8 +36,10 @@ A Brand Reverse result can be sent directly into Compare Lab, and any comparison
 
 ## Development
 
+Use Node.js 22 and npm from the repository root. This repository installs from `package.json`.
+
 ```bash
-npm install
+npm install --no-package-lock
 npm run dev
 ```
 
@@ -49,6 +51,10 @@ Then open `http://localhost:3000`.
 npm run lint
 npm run build
 ```
+
+Run both commands locally for code changes. `lint` runs ESLint and `build` checks TypeScript and produces the Next.js build. GitHub Actions history is available under [Actions](https://github.com/akiralazycat/tone/actions).
+
+For changes to Studio or Compare Lab, reopen a shared Tone URL and confirm that the preset, seed color and axes match. For Brand Reverse, select a local image and confirm it previews and can be sent to Compare Lab.
 
 ## Architecture
 
