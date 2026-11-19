@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { HouseBar } from "@/components/house-bar";
 import {
   axisMeta,
   createToneTokens,
   getContrast,
+  readSharedTone,
   toAiBrief,
   toCss,
   tonePresets,
@@ -66,6 +67,17 @@ function CheckIcon({ size = 15 }: IconProps) {
 }
 
 const isHex = (value: string) => /^#[0-9a-fA-F]{6}$/.test(value);
+
+type ToneDraft = { preset: TonePreset; axes: ToneAxes; seed: string; hexDraft: string };
+
+function subscribeToSearch(onChange: () => void) {
+  window.addEventListener("popstate", onChange);
+  return () => window.removeEventListener("popstate", onChange);
+}
+
+function draftFromPreset(preset: TonePreset): ToneDraft {
+  return { preset, axes: preset.axes, seed: preset.seed, hexDraft: preset.seed };
+}
 
 function PresetCard({ preset, selected, onSelect }: { preset: TonePreset; selected: boolean; onSelect: () => void }) {
   return (
@@ -155,33 +167,16 @@ function StudioPreview({ preset, axes, seed, mode }: { preset: TonePreset; axes:
 }
 
 export default function ToneStudio() {
-  const [presetId, setPresetId] = useState(tonePresets[0].id);
-  const preset = tonePresets.find((item) => item.id === presetId) ?? tonePresets[0];
-  const [axes, setAxes] = useState<ToneAxes>(tonePresets[0].axes);
-  const [seed, setSeed] = useState(tonePresets[0].seed);
-  const [hexDraft, setHexDraft] = useState(tonePresets[0].seed);
+  const search = useSyncExternalStore(subscribeToSearch, () => window.location.search, () => "");
+  const sharedDraft = useMemo(() => {
+    const shared = readSharedTone(search);
+    return shared ? { ...shared, hexDraft: shared.seed } : draftFromPreset(tonePresets[0]);
+  }, [search]);
+  const [draft, setDraft] = useState<ToneDraft | null>(null);
+  const { preset, axes, seed, hexDraft } = draft ?? sharedDraft;
   const [exportMode, setExportMode] = useState<ExportMode>("css");
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
   const [copied, setCopied] = useState<string | null>(null);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const sharedPreset = tonePresets.find((item) => item.id === params.get("tone"));
-    if (!sharedPreset) return;
-
-    const nextAxes = { ...sharedPreset.axes };
-    for (const { key } of axisMeta) {
-      const parsed = Number(params.get(key));
-      if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 100) nextAxes[key] = parsed;
-    }
-    const sharedSeed = params.get("seed");
-    const nextSeed = sharedSeed && isHex(`#${sharedSeed.replace("#", "")}`) ? `#${sharedSeed.replace("#", "")}` : sharedPreset.seed;
-
-    setPresetId(sharedPreset.id);
-    setAxes(nextAxes);
-    setSeed(nextSeed);
-    setHexDraft(nextSeed);
-  }, []);
 
   const tunedPreset = useMemo(() => ({ ...preset, seed }), [preset, seed]);
   const tokens = useMemo(() => createToneTokens(tunedPreset, axes), [tunedPreset, axes]);
@@ -197,19 +192,23 @@ export default function ToneStudio() {
   }, [axes, exportMode, preset.name, seed, tokens, tunedPreset]);
 
   const selectPreset = (nextPreset: TonePreset) => {
-    setPresetId(nextPreset.id);
-    setAxes(nextPreset.axes);
-    setSeed(nextPreset.seed);
-    setHexDraft(nextPreset.seed);
+    setDraft(draftFromPreset(nextPreset));
+  };
+
+  const updateDraft = (changes: Partial<ToneDraft>) => {
+    setDraft((current) => ({ ...(current ?? sharedDraft), ...changes }));
   };
 
   const updateAxis = (key: keyof ToneAxes, value: number) => {
-    setAxes((current) => ({ ...current, [key]: value }));
+    setDraft((current) => {
+      const active = current ?? sharedDraft;
+      return { ...active, axes: { ...active.axes, [key]: value } };
+    });
   };
 
   const commitHex = () => {
-    if (isHex(hexDraft)) setSeed(hexDraft.toLowerCase());
-    else setHexDraft(seed);
+    if (isHex(hexDraft)) updateDraft({ seed: hexDraft.toLowerCase() });
+    else updateDraft({ hexDraft: seed });
   };
 
   const copy = async (value: string, key: string) => {
@@ -230,17 +229,17 @@ export default function ToneStudio() {
   const remix = () => {
     const next = tonePresets[Math.floor(Math.random() * tonePresets.length)];
     const jitter = (value: number) => Math.max(0, Math.min(100, value + Math.round(Math.random() * 20 - 10)));
-    setPresetId(next.id);
-    setAxes({
-      warmth: jitter(next.axes.warmth),
-      energy: jitter(next.axes.energy),
-      contrast: jitter(next.axes.contrast),
-      saturation: jitter(next.axes.saturation),
-      formality: jitter(next.axes.formality),
-      roundness: jitter(next.axes.roundness),
+    setDraft({
+      ...draftFromPreset(next),
+      axes: {
+        warmth: jitter(next.axes.warmth),
+        energy: jitter(next.axes.energy),
+        contrast: jitter(next.axes.contrast),
+        saturation: jitter(next.axes.saturation),
+        formality: jitter(next.axes.formality),
+        roundness: jitter(next.axes.roundness),
+      },
     });
-    setSeed(next.seed);
-    setHexDraft(next.seed);
   };
 
   return (
@@ -290,9 +289,9 @@ export default function ToneStudio() {
             <div className="section-label-row"><label htmlFor="seed-color">Accent seed</label><span>Foundation hue</span></div>
             <div className="color-control">
               <label className="color-chip" style={{ background: seed }} aria-label="Choose accent seed color">
-                <input id="seed-color" type="color" value={seed} onChange={(event) => { setSeed(event.target.value); setHexDraft(event.target.value); }} />
+                <input id="seed-color" type="color" value={seed} onChange={(event) => updateDraft({ seed: event.target.value, hexDraft: event.target.value })} />
               </label>
-              <input className="hex-input" value={hexDraft} onChange={(event) => setHexDraft(event.target.value)} onBlur={commitHex} onKeyDown={(event) => { if (event.key === "Enter") commitHex(); }} aria-label="Accent seed hex value" />
+              <input className="hex-input" value={hexDraft} onChange={(event) => updateDraft({ hexDraft: event.target.value })} onBlur={commitHex} onKeyDown={(event) => { if (event.key === "Enter") commitHex(); }} aria-label="Accent seed hex value" />
               <span className="color-result" style={{ background: tokens.accent }} title="Generated accent" />
             </div>
           </div>

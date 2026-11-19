@@ -283,6 +283,24 @@ export const axisMeta: Array<{
   { key: "roundness", label: "Geometry", low: "Architectural", high: "Soft" },
 ];
 
+export function readSharedTone(search: string) {
+  const params = new URLSearchParams(search);
+  const preset = tonePresets.find((item) => item.id === params.get("tone"));
+  if (!preset) return null;
+
+  const axes = { ...preset.axes };
+  for (const { key } of axisMeta) {
+    const raw = params.get(key);
+    if (!raw?.trim()) continue;
+    const value = Number(raw);
+    if (Number.isFinite(value) && value >= 0 && value <= 100) axes[key] = value;
+  }
+
+  const seedParam = params.get("seed")?.replace(/^#/, "");
+  const seed = seedParam && /^[0-9a-f]{6}$/i.test(seedParam) ? `#${seedParam}` : preset.seed;
+  return { preset, axes, seed };
+}
+
 export function toCss(tokens: ToneTokens) {
   return `:root {\n  --tone-canvas: ${tokens.canvas};\n  --tone-surface: ${tokens.surface};\n  --tone-surface-strong: ${tokens.surfaceStrong};\n  --tone-text: ${tokens.text};\n  --tone-text-soft: ${tokens.textSoft};\n  --tone-accent: ${tokens.accent};\n  --tone-accent-soft: ${tokens.accentSoft};\n  --tone-accent-ink: ${tokens.accentInk};\n  --tone-border: ${tokens.border};\n  --tone-radius: ${tokens.radius}px;\n  --tone-shadow: ${tokens.shadow};\n  --tone-tracking: ${tokens.tracking}em;\n  --tone-motion: ${tokens.motion}ms;\n}`;
 }
